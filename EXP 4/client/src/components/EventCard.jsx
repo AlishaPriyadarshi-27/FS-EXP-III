@@ -1,37 +1,37 @@
-import React from "react";
+import { memo } from "react";
 
 function EventCard({
   event,
   onDragStart,
   renderCountsRef,
 }) {
-  // Count every actual render without updating React state.
-  // This avoids the infinite render loop.
+
+  // Count every actual EventCard render
   renderCountsRef.current[event.id] =
     (renderCountsRef.current[event.id] || 0) + 1;
-
-  const handleDragStart = () => {
-    onDragStart(event);
-  };
 
   return (
     <div
       className={`event-card ${event.type}`}
       draggable
-      onDragStart={handleDragStart}
+      onDragStart={() => onDragStart(event)}
     >
-      <span className="event-time">
+      <div className="event-time">
         {event.time}
-      </span>
+      </div>
 
-      <span className="event-title">
+      <div className="event-title">
         {event.title}
-      </span>
+      </div>
     </div>
   );
 }
 
-const MemoizedEventCard = React.memo(EventCard);
+
+// React.memo prevents unnecessary re-renders
+// when event and onDragStart props remain unchanged
+const MemoizedEventCard = memo(EventCard);
+
 
 export {
   EventCard,

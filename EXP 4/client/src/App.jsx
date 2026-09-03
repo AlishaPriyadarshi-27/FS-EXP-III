@@ -1,9 +1,9 @@
 import {
   useState,
-  useCallback,
   useEffect,
-  useRef,
   useMemo,
+  useCallback,
+  useRef,
 } from "react";
 
 import "./App.css";
@@ -13,306 +13,380 @@ import {
   MemoizedEventCard,
 } from "./components/EventCard";
 
-const API_URL = "http://localhost:5000/api/events";
+
+const initialEvents = [
+  {
+    id: 1,
+    title: "Design review",
+    time: "10:00",
+    day: "Mon",
+    type: "meeting",
+  },
+  {
+    id: 2,
+    title: "Ship v2.3",
+    time: "16:00",
+    day: "Mon",
+    type: "deadline",
+  },
+  {
+    id: 3,
+    title: "1:1 with Sam",
+    time: "09:30",
+    day: "Tue",
+    type: "meeting",
+  },
+  {
+    id: 4,
+    title: "Write proposal",
+    time: "13:00",
+    day: "Wed",
+    type: "focus",
+  },
+  {
+    id: 5,
+    title: "Client demo",
+    time: "15:00",
+    day: "Thu",
+    type: "meeting",
+  },
+  {
+    id: 6,
+    title: "Portfolio review",
+    time: "18:00",
+    day: "Thu",
+    type: "focus",
+  },
+  {
+    id: 7,
+    title: "Grocery run",
+    time: "10:00",
+    day: "Sat",
+    type: "personal",
+  },
+  {
+    id: 8,
+    title: "Sprint planning",
+    time: "11:00",
+    day: "Sun",
+    type: "meeting",
+  },
+];
+
+
+const days = [
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+  "Sun",
+];
+
 
 function App() {
-  /* =========================
-     PERFORMANCE TOGGLES
-  ========================= */
 
-  const [memoEnabled, setMemoEnabled] = useState(true);
-  const [callbackEnabled, setCallbackEnabled] = useState(true);
-  const [useMemoEnabled, setUseMemoEnabled] = useState(true);
-  const [liveClock, setLiveClock] = useState(false);
+  // =========================
+  // OPTIMIZATION SETTINGS
+  // =========================
 
-  /* =========================
-     EVENTS
-  ========================= */
+  const [memoEnabled, setMemoEnabled] =
+    useState(true);
 
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [callbackEnabled, setCallbackEnabled] =
+    useState(true);
 
-  /* =========================
-     CLOCK
-  ========================= */
+  const [useMemoEnabled, setUseMemoEnabled] =
+    useState(true);
 
-  const [clock, setClock] = useState(Date.now());
+  const [liveClock, setLiveClock] =
+    useState(false);
 
-  /* =========================
-     RENDER COUNTERS
 
-     Ref is used so EventCard can
-     increment its count without
-     causing another React render.
-  ========================= */
+  // =========================
+  // EVENTS
+  // =========================
 
-  const renderCountsRef = useRef({});
+  const [events, setEvents] = useState(() => {
+    try {
+      const savedEvents =
+        localStorage.getItem("calendarEvents");
 
-  /* =========================
-     DRAG STATE
-  ========================= */
+      if (savedEvents) {
+        return JSON.parse(savedEvents);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+
+    return initialEvents;
+  });
+
+
+  // =========================
+  // LIVE CLOCK
+  // =========================
+
+  const [clock, setClock] =
+    useState(Date.now());
+
+
+  useEffect(() => {
+
+    if (!liveClock) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+
+      // Only ONE state update per tick
+      setClock(Date.now());
+
+    }, 450);
+
+    return () => clearInterval(interval);
+
+  }, [liveClock]);
+
+
+  // =========================
+  // SAVE EVENTS
+  // =========================
+
+  useEffect(() => {
+
+    localStorage.setItem(
+      "calendarEvents",
+      JSON.stringify(events)
+    );
+
+  }, [events]);
+
+
+  // =========================
+  // RENDER COUNTERS
+  // =========================
+
+  const renderCountsRef =
+    useRef({});
+
+
+  // Used only to refresh monitor display
+  const [monitorVersion, setMonitorVersion] =
+    useState(0);
+
+
+  // =========================
+  // DRAGGED EVENT
+  // =========================
 
   const [draggedEvent, setDraggedEvent] =
     useState(null);
 
-  const days = [
-    "Mon",
-    "Tue",
-    "Wed",
-    "Thu",
-    "Fri",
-    "Sat",
-    "Sun",
-  ];
 
-  /* =========================
-     FETCH EVENTS
-  ========================= */
+  // =========================
+  // useCallback VERSION
+  // =========================
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        setLoading(true);
+  const stableDragStart =
+    useCallback((event) => {
 
-        const response = await fetch(API_URL);
-
-        if (!response.ok) {
-          throw new Error(
-            "Failed to fetch events"
-          );
-        }
-
-        const data = await response.json();
-
-        setEvents(data);
-        setError("");
-      } catch (err) {
-        console.error(err);
-
-        setError(
-          "Backend connection failed. Please make sure the server is running."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
-  }, []);
-
-  /* =========================
-     LIVE CLOCK
-
-     This deliberately causes the
-     App component to re-render.
-     It helps demonstrate the
-     difference between optimized
-     and non-optimized cards.
-  ========================= */
-
-  useEffect(() => {
-    if (!liveClock) return;
-
-    const interval = setInterval(() => {
-      setClock(Date.now());
-    }, 450);
-
-    return () => clearInterval(interval);
-  }, [liveClock]);
-
-  /* =========================
-     DRAG START HANDLERS
-  ========================= */
-
-  const memoizedDragStart = useCallback(
-    (event) => {
       setDraggedEvent(event);
-    },
-    []
-  );
 
+    }, []);
+
+
+  // Intentionally recreated on every render
+  // This demonstrates non-optimized callbacks
   const normalDragStart = (event) => {
+
     setDraggedEvent(event);
+
   };
+
 
   const dragStartHandler =
     callbackEnabled
-      ? memoizedDragStart
+      ? stableDragStart
       : normalDragStart;
 
-  /* =========================
-     DRAG OVER
-  ========================= */
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
+  // =========================
+  // DRAG OVER
+  // =========================
 
-  /* =========================
-     DROP + BACKEND UPDATE
-  ========================= */
+  const handleDragOver =
+    useCallback((event) => {
 
-  const handleDrop = async (day) => {
+      event.preventDefault();
+
+    }, []);
+
+
+  // =========================
+  // DROP EVENT
+  // =========================
+
+  const stableDrop =
+    useCallback((day) => {
+
+      setEvents((previousEvents) =>
+        previousEvents.map((event) =>
+          event.id === draggedEvent?.id
+            ? {
+                ...event,
+                day,
+              }
+            : event
+        )
+      );
+
+      setDraggedEvent(null);
+
+    }, [draggedEvent]);
+
+
+  const normalDrop = (day) => {
+
     if (!draggedEvent) return;
-
-    const updatedEvent = {
-      ...draggedEvent,
-      day,
-    };
-
-    /* Update frontend immediately */
 
     setEvents((previousEvents) =>
       previousEvents.map((event) =>
         event.id === draggedEvent.id
-          ? updatedEvent
+          ? {
+              ...event,
+              day,
+            }
           : event
       )
     );
 
-    try {
-      const response = await fetch(
-        `${API_URL}/${draggedEvent.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            day,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          "Failed to update event"
-        );
-      }
-
-      setError("");
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        "Event could not be updated on the backend."
-      );
-    }
-
     setDraggedEvent(null);
+
   };
 
-  /* =========================
-     useMemo EVENT GROUPING
-  ========================= */
 
-  const memoizedEventsByDay = useMemo(() => {
-    const groupedEvents = {};
+  const dropHandler =
+    callbackEnabled
+      ? stableDrop
+      : normalDrop;
 
-    days.forEach((day) => {
-      groupedEvents[day] =
-        events.filter(
-          (event) => event.day === day
-        );
-    });
 
-    return groupedEvents;
-  }, [events]);
+  // =========================
+  // useMemo VERSION
+  // =========================
+
+  const memoizedEventsByDay =
+    useMemo(() => {
+
+      const grouped = {};
+
+      days.forEach((day) => {
+
+        grouped[day] =
+          events.filter(
+            (event) =>
+              event.day === day
+          );
+
+      });
+
+      return grouped;
+
+    }, [events]);
+
+
+  // =========================
+  // GET EVENTS
+  // =========================
 
   const getEventsForDay = (day) => {
+
     if (useMemoEnabled) {
-      return memoizedEventsByDay[day] || [];
+
+      return (
+        memoizedEventsByDay[day] || []
+      );
+
     }
 
-    /* Non-optimized calculation */
-
     return events.filter(
-      (event) => event.day === day
+      (event) =>
+        event.day === day
     );
+
   };
 
-  /* =========================
-     RESET COUNTERS
-  ========================= */
+
+  // =========================
+  // RESET COUNTERS
+  // =========================
 
   const resetCounters = () => {
+
     renderCountsRef.current = {};
 
-    /*
-      Trigger one parent render so
-      the empty counters are shown.
-    */
+    setMonitorVersion(
+      (previous) => previous + 1
+    );
 
-    setClock(Date.now());
   };
 
-  /* =========================
-     MONITOR CALCULATIONS
-  ========================= */
+
+  // =========================
+  // MONITOR DATA
+  // =========================
 
   const renderCounts =
     renderCountsRef.current;
 
+
   const totalRenders =
     Object.values(renderCounts).reduce(
-      (total, count) => total + count,
+      (total, count) =>
+        total + count,
       0
     );
+
 
   const cardsRendered =
     Object.keys(renderCounts).length;
 
-  /* =========================
-     LOADING SCREEN
-  ========================= */
 
-  if (loading) {
-    return (
-      <div className="app">
-        <h1>Interactive Calendar</h1>
-
-        <p className="subtitle">
-          Loading calendar events...
-        </p>
-      </div>
-    );
-  }
-
-  /* =========================
-     SELECT CARD COMPONENT
-  ========================= */
+  // =========================
+  // CARD VERSION
+  // =========================
 
   const CardComponent =
     memoEnabled
       ? MemoizedEventCard
       : EventCard;
 
-  /* =========================
-     UI
-  ========================= */
 
   return (
+
     <div className="app">
 
-      <h1>Interactive Calendar</h1>
+      <h1>
+        Interactive Calendar
+      </h1>
+
 
       <p className="subtitle">
-        Drag events between days, then flip the switches below to see, in real
-        time, what React.memo, useCallback, and useMemo actually do to renders.
+        Drag events between days, then flip the
+        switches below to see, in real time,
+        what React.memo, useCallback, and
+        useMemo actually do to renders.
       </p>
 
-      {error && (
-        <div className="error-message">
-          {error}
-        </div>
-      )}
 
       {/* CONTROLS */}
 
       <div className="controls">
 
-        {/* REACT.MEMO */}
+
+        {/* REACT MEMO */}
 
         <div className="control-item">
 
@@ -321,9 +395,9 @@ function App() {
             <input
               type="checkbox"
               checked={memoEnabled}
-              onChange={(e) =>
+              onChange={(event) =>
                 setMemoEnabled(
-                  e.target.checked
+                  event.target.checked
                 )
               }
             />
@@ -332,17 +406,22 @@ function App() {
 
           </label>
 
+
           <div>
+
             <h3>
               React.memo on cards
             </h3>
 
             <p>
-              Skip a card's re-render when its own props haven't changed.
+              Skip a card's re-render when
+              its own props haven't changed.
             </p>
+
           </div>
 
         </div>
+
 
         {/* USE CALLBACK */}
 
@@ -353,9 +432,9 @@ function App() {
             <input
               type="checkbox"
               checked={callbackEnabled}
-              onChange={(e) =>
+              onChange={(event) =>
                 setCallbackEnabled(
-                  e.target.checked
+                  event.target.checked
                 )
               }
             />
@@ -364,17 +443,22 @@ function App() {
 
           </label>
 
+
           <div>
+
             <h3>
               useCallback for handlers
             </h3>
 
             <p>
-              Keep drag handlers referentially stable.
+              Keep drag handlers
+              referentially stable.
             </p>
+
           </div>
 
         </div>
+
 
         {/* USE MEMO */}
 
@@ -385,9 +469,9 @@ function App() {
             <input
               type="checkbox"
               checked={useMemoEnabled}
-              onChange={(e) =>
+              onChange={(event) =>
                 setUseMemoEnabled(
-                  e.target.checked
+                  event.target.checked
                 )
               }
             />
@@ -396,17 +480,22 @@ function App() {
 
           </label>
 
+
           <div>
+
             <h3>
               useMemo for agenda filter
             </h3>
 
             <p>
-              Cache filtered events and avoid unnecessary calculations.
+              Cache filtered events and avoid
+              unnecessary calculations.
             </p>
+
           </div>
 
         </div>
+
 
         {/* LIVE CLOCK */}
 
@@ -417,9 +506,9 @@ function App() {
             <input
               type="checkbox"
               checked={liveClock}
-              onChange={(e) =>
+              onChange={(event) =>
                 setLiveClock(
-                  e.target.checked
+                  event.target.checked
                 )
               }
             />
@@ -428,20 +517,23 @@ function App() {
 
           </label>
 
+
           <div>
+
             <h3>
               Live Clock
             </h3>
 
             <p>
-              Ticks every 450ms to simulate unrelated state elsewhere in the
-              application.
+              Ticks every 450ms to simulate
+              unrelated state elsewhere in
+              the application.
             </p>
+
           </div>
 
         </div>
 
-        {/* RESET */}
 
         <button
           className="reset-button"
@@ -452,9 +544,11 @@ function App() {
 
       </div>
 
+
       {/* MAIN CONTENT */}
 
       <div className="content">
+
 
         {/* CALENDAR */}
 
@@ -463,6 +557,7 @@ function App() {
           <h2>
             WEEK VIEW
           </h2>
+
 
           <div className="week">
 
@@ -473,13 +568,14 @@ function App() {
                 key={day}
                 onDragOver={handleDragOver}
                 onDrop={() =>
-                  handleDrop(day)
+                  dropHandler(day)
                 }
               >
 
                 <span className="day-name">
                   {day}
                 </span>
+
 
                 {getEventsForDay(day).map(
                   (event) => (
@@ -506,6 +602,7 @@ function App() {
 
         </div>
 
+
         {/* RENDER MONITOR */}
 
         <div className="monitor-panel">
@@ -513,6 +610,7 @@ function App() {
           <h2>
             RENDER MONITOR
           </h2>
+
 
           <div className="monitor-stats">
 
@@ -528,6 +626,7 @@ function App() {
 
             </div>
 
+
             <div>
 
               <strong>
@@ -542,18 +641,23 @@ function App() {
 
           </div>
 
+
           <div className="monitor-list">
 
             {events.map((event) => {
 
               const count =
-                renderCounts[event.id] || 0;
+                renderCounts[
+                  event.id
+                ] || 0;
+
 
               const width =
                 Math.min(
                   count * 10,
                   100
                 );
+
 
               return (
 
@@ -566,6 +670,7 @@ function App() {
                     {event.title}
                   </span>
 
+
                   <div className="bar-container">
 
                     <div
@@ -574,9 +679,10 @@ function App() {
                         width:
                           `${width}%`,
                       }}
-                    ></div>
+                    />
 
                   </div>
+
 
                   <span className="count">
                     {count}
@@ -585,6 +691,7 @@ function App() {
                 </div>
 
               );
+
             })}
 
           </div>
@@ -593,8 +700,23 @@ function App() {
 
       </div>
 
+
+      {/* Forces parent re-render when clock changes */}
+
+      <span
+        style={{
+          display: "none"
+        }}
+      >
+        {clock}
+        {monitorVersion}
+      </span>
+
     </div>
+
   );
+
 }
+
 
 export default App;
